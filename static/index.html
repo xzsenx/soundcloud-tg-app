@@ -14,10 +14,20 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--tg-theme-bg-color, #1a1a2e);
-            color: var(--tg-theme-text-color, #eee);
+            background: #1a1a2e;
+            color: #eee;
             min-height: 100vh;
             padding-bottom: 120px; /* место для плеера */
+        }
+
+        #loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            color: #888;
+            font-size: 16px;
         }
 
         .container {
@@ -316,8 +326,13 @@
 <div class="container">
     <h1>SoundCloud Player</h1>
 
+    <!-- Загрузка при старте -->
+    <div id="loading-screen">
+        <p>Подключение к серверу...</p>
+    </div>
+
     <!-- Экран авторизации -->
-    <div id="auth-screen">
+    <div id="auth-screen" style="display:none;">
         <p>Для работы нужна авторизация через SoundCloud.<br>
            Первый раз потребуется VPN, потом — нет.</p>
         <button class="btn" onclick="startAuth()">Войти через SoundCloud</button>
@@ -396,8 +411,13 @@
 
     // --- Инициализация ---
     async function init() {
+        const loadingScreen = document.getElementById("loading-screen");
+        const authScreen = document.getElementById("auth-screen");
+
         if (!telegramId) {
-            document.getElementById("auth-screen").querySelector("p").textContent =
+            loadingScreen.style.display = "none";
+            authScreen.style.display = "flex";
+            authScreen.querySelector("p").textContent =
                 "Не удалось определить Telegram ID. Откройте приложение через Telegram бота.";
             return;
         }
@@ -407,18 +427,24 @@
             const resp = await fetch(`${API_BASE}/api/check?telegram_id=${telegramId}`);
             const data = await resp.json();
 
+            loadingScreen.style.display = "none";
+
             if (data.authorized) {
                 showMainScreen();
                 loadLikes();
+            } else {
+                authScreen.style.display = "flex";
             }
-            // Если не авторизован — показываем экран авторизации (по умолчанию)
         } catch (e) {
             console.error("Ошибка проверки авторизации:", e);
+            loadingScreen.querySelector("p").textContent =
+                "Сервер просыпается... Подождите 30 сек и перезайдите.";
         }
     }
 
     function showMainScreen() {
         document.getElementById("auth-screen").style.display = "none";
+        document.getElementById("loading-screen").style.display = "none";
         document.getElementById("main-screen").style.display = "block";
     }
 
