@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SoundCloud Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #1a1a2e);
+            color: var(--tg-theme-text-color, #eee);
+            min-height: 100vh;
+            padding-bottom: 120px; /* место для плеера */
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        /* --- Авторизация --- */
+        #auth-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 16px;
+        }
+
+        #auth-screen p {
+            color: var(--tg-theme-hint-color, #888);
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: var(--tg-theme-button-color, #ff5500);
+            color: var(--tg-theme-button-text-color, #fff);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        /* --- Основной экран --- */
+        #main-screen {
+            display: none;
+        }
+
+        /* Табы */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+            border: none;
+            border-radius: 8px;
+            color: var(--tg-theme-hint-color, #888);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background: var(--tg-theme-button-color, #ff5500);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+
+        /* Поиск */
+        .search-box {
+            display: none;
+            margin-bottom: 16px;
+        }
+
+        .search-box.visible {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--tg-theme-hint-color, #444);
+            background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+            color: var(--tg-theme-text-color, #eee);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-box button {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            background: var(--tg-theme-button-color, #ff5500);
+            color: var(--tg-theme-button-text-color, #fff);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* Список треков */
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .track-item:active {
+            opacity: 0.7;
+        }
+
+        .track-item.playing {
+            border: 1px solid var(--tg-theme-button-color, #ff5500);
+        }
+
+        .track-art {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            background: #333;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
+
+        .track-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .track-title {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-artist {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #888);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-duration {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #888);
+            flex-shrink: 0;
+        }
+
+        /* Плеер */
+        #player {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+            border-top: 1px solid #333;
+            padding: 12px 16px;
+        }
+
+        #player .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        #player .player-title {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #player .player-artist {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+
+        #player .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #player .play-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: var(--tg-theme-button-color, #ff5500);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #player .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        #player .progress-fill {
+            height: 100%;
+            background: var(--tg-theme-button-color, #ff5500);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s linear;
+        }
+
+        #player .time-display {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #888);
+            flex-shrink: 0;
+            min-width: 35px;
+            text-align: right;
+        }
+
+        /* Плейлисты */
+        .playlist-item {
+            padding: 12px;
+            background: var(--tg-theme-secondary-bg-color, #2a2a3e);
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .playlist-item:active {
+            opacity: 0.7;
+        }
+
+        .playlist-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .playlist-count {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+
+        /* Загрузка */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+
+        .error-msg {
+            text-align: center;
+            padding: 20px;
+            color: #e74c3c;
+            font-size: 14px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--tg-theme-link-color, #ff5500);
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>SoundCloud Player</h1>
+
+    <!-- Экран авторизации -->
+    <div id="auth-screen">
+        <p>Для работы нужна авторизация через SoundCloud.<br>
+           Первый раз потребуется VPN, потом — нет.</p>
+        <button class="btn" onclick="startAuth()">Войти через SoundCloud</button>
+    </div>
+
+    <!-- Основной экран -->
+    <div id="main-screen">
+        <div class="tabs">
+            <button class="tab active" data-tab="likes" onclick="switchTab('likes')">Лайки</button>
+            <button class="tab" data-tab="playlists" onclick="switchTab('playlists')">Плейлисты</button>
+            <button class="tab" data-tab="search" onclick="switchTab('search')">Поиск</button>
+        </div>
+
+        <div class="search-box" id="search-box">
+            <input type="text" id="search-input" placeholder="Название трека или артиста..."
+                   onkeydown="if(event.key==='Enter')doSearch()">
+            <button onclick="doSearch()">Найти</button>
+        </div>
+
+        <div id="content">
+            <div class="loading">Загрузка...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Плеер -->
+<div id="player">
+    <div class="player-info">
+        <div style="flex:1;overflow:hidden;">
+            <div class="player-title" id="player-title">—</div>
+            <div class="player-artist" id="player-artist">—</div>
+        </div>
+    </div>
+    <div class="player-controls">
+        <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+        <div class="progress-bar" id="progress-bar" onclick="seek(event)">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <span class="time-display" id="time-display">0:00</span>
+    </div>
+</div>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+    // --- Конфигурация ---
+    // Определяем базовый URL бэкенда (тот же хост, что отдал эту страницу)
+    const API_BASE = window.location.origin;
+
+    // Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    let telegramId = null;
+
+    if (tg) {
+        tg.ready();
+        tg.expand();
+        telegramId = tg.initDataUnsafe?.user?.id?.toString() || null;
+    }
+
+    // Для отладки без Telegram
+    if (!telegramId) {
+        telegramId = new URLSearchParams(window.location.search).get("tg_id") || null;
+    }
+
+    // --- Состояние ---
+    let currentTab = "likes";
+    let currentTrackList = [];
+    let currentTrackIndex = -1;
+    let isPlaying = false;
+
+    const audio = document.getElementById("audio");
+    const playerEl = document.getElementById("player");
+    const playBtn = document.getElementById("play-btn");
+    const progressFill = document.getElementById("progress-fill");
+    const timeDisplay = document.getElementById("time-display");
+
+    // --- Инициализация ---
+    async function init() {
+        if (!telegramId) {
+            document.getElementById("auth-screen").querySelector("p").textContent =
+                "Не удалось определить Telegram ID. Откройте приложение через Telegram бота.";
+            return;
+        }
+
+        // Проверяем авторизацию
+        try {
+            const resp = await fetch(`${API_BASE}/api/check?telegram_id=${telegramId}`);
+            const data = await resp.json();
+
+            if (data.authorized) {
+                showMainScreen();
+                loadLikes();
+            }
+            // Если не авторизован — показываем экран авторизации (по умолчанию)
+        } catch (e) {
+            console.error("Ошибка проверки авторизации:", e);
+        }
+    }
+
+    function showMainScreen() {
+        document.getElementById("auth-screen").style.display = "none";
+        document.getElementById("main-screen").style.display = "block";
+    }
+
+    // --- OAuth ---
+    function startAuth() {
+        if (!telegramId) {
+            alert("Telegram ID не найден. Откройте через бота.");
+            return;
+        }
+        // Открываем OAuth в текущем окне
+        window.location.href = `${API_BASE}/auth?telegram_id=${telegramId}`;
+    }
+
+    // --- Табы ---
+    function switchTab(tab) {
+        currentTab = tab;
+
+        document.querySelectorAll(".tab").forEach(t => {
+            t.classList.toggle("active", t.dataset.tab === tab);
+        });
+
+        const searchBox = document.getElementById("search-box");
+        searchBox.classList.toggle("visible", tab === "search");
+
+        if (tab === "likes") loadLikes();
+        else if (tab === "playlists") loadPlaylists();
+        else if (tab === "search") {
+            document.getElementById("content").innerHTML =
+                '<p style="text-align:center;color:#888;padding:40px;">Введите запрос для поиска</p>';
+            document.getElementById("search-input").focus();
+        }
+    }
+
+    // --- Загрузка данных ---
+    async function loadLikes() {
+        const content = document.getElementById("content");
+        content.innerHTML = '<div class="loading">Загрузка лайков...</div>';
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/likes?telegram_id=${telegramId}`);
+            if (resp.status === 401) {
+                document.getElementById("main-screen").style.display = "none";
+                document.getElementById("auth-screen").style.display = "flex";
+                return;
+            }
+            const tracks = await resp.json();
+            currentTrackList = tracks;
+            renderTracks(tracks);
+        } catch (e) {
+            content.innerHTML = '<div class="error-msg">Ошибка загрузки лайков</div>';
+        }
+    }
+
+    async function loadPlaylists() {
+        const content = document.getElementById("content");
+        content.innerHTML = '<div class="loading">Загрузка плейлистов...</div>';
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/playlists?telegram_id=${telegramId}`);
+            if (resp.status === 401) return;
+            const playlists = await resp.json();
+            renderPlaylists(playlists);
+        } catch (e) {
+            content.innerHTML = '<div class="error-msg">Ошибка загрузки плейлистов</div>';
+        }
+    }
+
+    async function doSearch() {
+        const query = document.getElementById("search-input").value.trim();
+        if (!query) return;
+
+        const content = document.getElementById("content");
+        content.innerHTML = '<div class="loading">Поиск...</div>';
+
+        try {
+            const resp = await fetch(
+                `${API_BASE}/api/search?telegram_id=${telegramId}&q=${encodeURIComponent(query)}`
+            );
+            const tracks = await resp.json();
+            currentTrackList = tracks;
+            renderTracks(tracks);
+        } catch (e) {
+            content.innerHTML = '<div class="error-msg">Ошибка поиска</div>';
+        }
+    }
+
+    // --- Рендеринг ---
+    function renderTracks(tracks) {
+        const content = document.getElementById("content");
+
+        if (!tracks.length) {
+            content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Ничего не найдено</p>';
+            return;
+        }
+
+        content.innerHTML = '<div class="track-list">' +
+            tracks.map((t, i) => `
+                <div class="track-item ${currentTrackIndex === i ? 'playing' : ''}"
+                     onclick="playTrack(${i})">
+                    <img class="track-art"
+                         src="${t.artwork ? t.artwork.replace('large', 't67x67') : ''}"
+                         onerror="this.style.background='#444'"
+                         alt="">
+                    <div class="track-info">
+                        <div class="track-title">${escapeHtml(t.title)}</div>
+                        <div class="track-artist">${escapeHtml(t.artist)}</div>
+                    </div>
+                    <span class="track-duration">${formatTime(t.duration / 1000)}</span>
+                </div>
+            `).join("") +
+            '</div>';
+    }
+
+    function renderPlaylists(playlists) {
+        const content = document.getElementById("content");
+
+        if (!playlists.length) {
+            content.innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Плейлисты не найдены</p>';
+            return;
+        }
+
+        content.innerHTML = playlists.map(pl => `
+            <div class="playlist-item" onclick='openPlaylist(${JSON.stringify(pl.tracks).replace(/'/g, "&#39;")})'>
+                <div class="playlist-name">${escapeHtml(pl.title)}</div>
+                <div class="playlist-count">${pl.track_count} треков</div>
+            </div>
+        `).join("");
+    }
+
+    function openPlaylist(tracks) {
+        currentTrackList = tracks;
+        const content = document.getElementById("content");
+        content.innerHTML = '<button class="back-btn" onclick="loadPlaylists()">← Назад к плейлистам</button>';
+        const listDiv = document.createElement("div");
+        content.appendChild(listDiv);
+
+        // Рендерим треки плейлиста
+        const tempContent = document.getElementById("content");
+        const backBtn = tempContent.innerHTML;
+        renderTracks(tracks);
+        tempContent.innerHTML = '<button class="back-btn" onclick="loadPlaylists()">← Назад</button>' + tempContent.innerHTML;
+    }
+
+    // --- Плеер ---
+    function playTrack(index) {
+        if (index < 0 || index >= currentTrackList.length) return;
+
+        currentTrackIndex = index;
+        const track = currentTrackList[index];
+
+        document.getElementById("player-title").textContent = track.title;
+        document.getElementById("player-artist").textContent = track.artist;
+
+        audio.src = `${API_BASE}/stream/${track.id}?telegram_id=${telegramId}`;
+        audio.play();
+        isPlaying = true;
+        playBtn.textContent = "⏸";
+        playerEl.style.display = "block";
+
+        // Обновляем UI списка
+        document.querySelectorAll(".track-item").forEach((el, i) => {
+            el.classList.toggle("playing", i === index);
+        });
+    }
+
+    function togglePlay() {
+        if (!audio.src) return;
+        if (isPlaying) {
+            audio.pause();
+            playBtn.textContent = "▶";
+        } else {
+            audio.play();
+            playBtn.textContent = "⏸";
+        }
+        isPlaying = !isPlaying;
+    }
+
+    function seek(event) {
+        if (!audio.duration) return;
+        const bar = document.getElementById("progress-bar");
+        const rect = bar.getBoundingClientRect();
+        const pct = (event.clientX - rect.left) / rect.width;
+        audio.currentTime = pct * audio.duration;
+    }
+
+    // Обновление прогресса
+    audio.addEventListener("timeupdate", () => {
+        if (audio.duration) {
+            const pct = (audio.currentTime / audio.duration) * 100;
+            progressFill.style.width = pct + "%";
+            timeDisplay.textContent = formatTime(audio.currentTime);
+        }
+    });
+
+    // Автопереключение на следующий трек
+    audio.addEventListener("ended", () => {
+        if (currentTrackIndex < currentTrackList.length - 1) {
+            playTrack(currentTrackIndex + 1);
+        } else {
+            isPlaying = false;
+            playBtn.textContent = "▶";
+        }
+    });
+
+    // --- Утилиты ---
+    function formatTime(seconds) {
+        seconds = Math.floor(seconds);
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // --- Старт ---
+    init();
+</script>
+</body>
+</html>
