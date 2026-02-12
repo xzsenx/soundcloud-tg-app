@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: soundcloud-tg-app
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SC_CLIENT_ID
+        sync: false
+      - key: SC_CLIENT_SECRET
+        sync: false
+      - key: REDIRECT_URI
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEBAPP_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
