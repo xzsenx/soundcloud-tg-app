@@ -336,6 +336,10 @@
         <p>Для работы нужна авторизация через SoundCloud.<br>
            Первый раз потребуется VPN, потом — нет.</p>
         <button class="btn" onclick="startAuth()">Войти через SoundCloud</button>
+        <p id="auth-link-hint" style="display:none;margin-top:12px;font-size:12px;color:#888;">
+            Не открывается? Скопируйте ссылку и откройте в браузере с VPN:<br>
+            <a id="auth-link-copy" href="#" style="color:#ff5500;word-break:break-all;" onclick="copyAuthLink(event)">Скопировать ссылку</a>
+        </p>
     </div>
 
     <!-- Основной экран -->
@@ -455,13 +459,35 @@
             return;
         }
         const authUrl = `${API_BASE}/auth?telegram_id=${telegramId}`;
-        // Telegram Mini App блокирует внешние редиректы через location.href
-        // Используем openLink чтобы открыть в системном браузере
+
+        // Показываем подсказку со ссылкой
+        const hint = document.getElementById("auth-link-hint");
+        const linkEl = document.getElementById("auth-link-copy");
+        hint.style.display = "block";
+        linkEl.href = authUrl;
+        linkEl.textContent = authUrl;
+
+        // Пробуем открыть в системном браузере
         if (tg && tg.openLink) {
             tg.openLink(authUrl);
         } else {
             window.open(authUrl, "_blank");
         }
+    }
+
+    function copyAuthLink(e) {
+        e.preventDefault();
+        const url = e.target.href;
+        navigator.clipboard.writeText(url).then(() => {
+            e.target.textContent = "✅ Скопировано!";
+            setTimeout(() => { e.target.textContent = url; }, 2000);
+        }).catch(() => {
+            // fallback — выделяем текст
+            const range = document.createRange();
+            range.selectNode(e.target);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+        });
     }
 
     // --- Табы ---
