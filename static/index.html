@@ -454,8 +454,14 @@
             alert("Telegram ID не найден. Откройте через бота.");
             return;
         }
-        // Открываем OAuth в текущем окне
-        window.location.href = `${API_BASE}/auth?telegram_id=${telegramId}`;
+        const authUrl = `${API_BASE}/auth?telegram_id=${telegramId}`;
+        // Telegram Mini App блокирует внешние редиректы через location.href
+        // Используем openLink чтобы открыть в системном браузере
+        if (tg && tg.openLink) {
+            tg.openLink(authUrl);
+        } else {
+            window.open(authUrl, "_blank");
+        }
     }
 
     // --- Табы ---
